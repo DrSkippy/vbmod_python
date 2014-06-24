@@ -11,9 +11,6 @@ jntj: todo
   - switch for inline usage?
   - error checking
   - compatibility w/ scipy 0.7?
-
-Modifictions Scott Hendrickson drskippy@twitter.com 2014-06
-
 """
 
 # import modules
@@ -27,21 +24,15 @@ from matplotlib.ticker import FormatStrFormatter
 from scipy import weave
 from time import time
 import struct
-#import networkx as nx
+import networkx as nx
 import resource
 import subprocess
 import numexpr
-import logging
 
-
-logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s'
-        , level=logging.INFO
-        , filename="./vbmod-log")
-logr = logging.getLogger("vbmod_logger")
 
 def init(N,K):
-    """
-        returns randomly-initialized mean-field matrix Q0 for vbmod. 
+	"""
+	returns randomly-initialized mean-field matrix Q0 for vbmod. 
 	
 	inputs:
 	  N: number of nodes
@@ -51,11 +42,11 @@ def init(N,K):
 	  Q: N-by-K mean-field matrix (rows sum to 1)
 	
 	"""
-    
-    Q=mat(random.random([N,K]))
-    Q=Q/(Q.sum(1)*ones([1,K]))
-    
-    return Q
+	
+	Q=mat(random.random([N,K]))
+	Q=Q/(Q.sum(1)*ones([1,K]))
+	
+	return Q
 
 
 def rnd(N,K,tp,tm):
@@ -134,7 +125,7 @@ def learn(A,K,net0={},opts={}):
 	VERBOSE=0
 	SAVE_ITER=0
 
-	logr.info("get options from opts struct")
+	#print "get options from opts struct"
 	if (type(opts) == type({})) and (len(opts) > 0):
 		if 'TOL_DF' in opts: TOL_DF=opts['TOL_DF']
 		if 'MAX_FITER' in opts: MAX_FITER=opts['MAX_FITER']
@@ -149,14 +140,14 @@ def learn(A,K,net0={},opts={}):
 	uk=mat(ones([K,1]))
 	un=mat(ones([N,1]))
 	
-	logr.info("default prior hyperparameters")
+	#print "default prior hyperparameters"
 	ap0=2;
 	bp0=1;
 	am0=1;
 	bm0=2;
 	a0=ones([1,K]);
 
-	logr.info("get initial Q0 matrix and prior hyperparameters from net0 struct")
+	#print "get initial Q0 matrix and prior hyperparameters from net0 struct"
 	if (type(net0) == type({})) and (len(net0) > 0):
 		if 'Q0' in net0: Q=net0['Q0']
 		if 'ap0' in net0: ap0=net0['ap0']
@@ -165,18 +156,18 @@ def learn(A,K,net0={},opts={}):
 		if 'bm0' in net0: bm0=net0['bm0']
 		if 'a0' in net0: a0=net0['a0']
 	
-	logr.info("initialize Q if not provided")
+	#print "initialize Q if not provided"
 	try: Q
 	except NameError: Q=init(N,K)
 	
 	Qmat=mat(Q)
-	logr.info("size of Q={}".format(Q.shape))
+	#print "size of Q=", Q.shape
 	#Q=init(N,K)
 
 	# ensure a0 is a 1-by-K vector
 	assert(a0.shape == (1,K))
 	
-	logr.info("intialize variational distribution hyperparameters to be equal to prior hyperparameters")
+	#print "intialize variational distribution hyperparameters to be equal to prior hyperparameters"
 	ap=ap0
 	bp=bp0
 	am=am0
@@ -249,7 +240,7 @@ def learn(A,K,net0={},opts={}):
 		am=nmp+am0
 		bm=nmm+bm0
 		a=n+a0
-		logr.info("ap={} bp={} am={} bm={} a={}".format( ap, bp, am, bm, a))
+		#print ap, bp, am, bm, a
 
 		# evaluate variational free energy, an approximation to the
 		# negative log-evidence	
@@ -259,7 +250,7 @@ def learn(A,K,net0={},opts={}):
 		F.append(betaln(ap,bp)-betaln(ap0,bp0)+betaln(am,bm)-betaln(am0,bm0)+sum(gammaln(a))-gammaln(sum(a))-(sum(gammaln(a0))-gammaln(sum(a0)))-sum(multiply(Qmat,log(Qmat))))
 		F[i]=-F[i]
 		
-		logr.info("iteration: {}, F={}".format(i+1, F[i]))
+		#print "iteration", i+1 , ": F =", F[i]
 
 		# F should always decrease
 		if (i>1) and F[i] > F[i-1]:
@@ -372,7 +363,7 @@ def learn_restart(A,Kvec,net0={},opts={}):
 	for kndx in range(len_Kvec):		
 		K=Kvec[kndx];
 		print "K=",K
-		logr.info("perform NUM_RESTARTS of vbmod")
+		#print "perform NUM_RESTARTS of vbmod"
 		net_KR = []
 		F_KR=zeros(NUM_RESTARTS)
 		for r in range(NUM_RESTARTS):
@@ -451,3 +442,69 @@ def restart_figs(A,net,net_K):
 	ylabel('F')
 	grid('on')
 
+def demo():
+	"""
+	function to demonstrate vbmod
+	"""
+	N=128.
+	K=4
+	Kvec=array(range(K-2,K+2+1))
+	ktot=16.
+	kout=6.
+	#pivec=ones(1,Ktrue)/Ktrue;	 
+
+	# determine within- and between- module edge probabilities from above
+	tp=(ktot-kout)/(N/K-1)
+	tm=kout/(N*(K-1)/K)
+
+	print "generating random adjacency matrix ... "
+	A=rnd(N,K,tp,tm)
+
+	print "running variational bayes ... "
+	t=time()
+	(net,net_K)=learn_restart(A,Kvec)
+	print "finished in", time()-t , "seconds"
+	print "displaying results ... "
+	restart_figs(A,net,net_K)
+	show()
+	return net
+
+
+def demo_largeN(N=1e3,Kvec=array([4,3,5]),ktot=16,kout=6):
+	"""
+	function to demonstrate vbmod for larger number of nodes
+	"""
+	K=Kvec[0]
+	Kvec=sort(Kvec)
+	#pivec=ones(1,Ktrue)/Ktrue;
+
+	# hyperparameters for priors
+	net0={}
+	net0['ap0']=N*2.
+	net0['bp0']=2.
+	net0['am0']=2.
+	net0['bm0']=N*2.
+
+	# options
+	opts={}
+	opts['NUM_RESTARTS']=1
+	opts['MAX_FITER']=50
+
+	# determine within- and between- module edge probabilities from above
+	tp=(ktot-kout)/(float(N)/K-1)
+	tm=kout/(float(N)*(K-1)/K)
+
+	print "generating random adjacency matrix ... "
+	# slow right now
+	A=rnd(N,K,tp,tm)
+
+	print "running variational bayes ... "
+	t=time()
+	(net,net_K)=learn_restart(A,Kvec,net0,opts)
+	print "finished in", time()-t , "seconds"
+	print "displaying results ... "
+	restart_figs(A,net,net_K)
+	show()
+
+if __name__ == '__main__':
+	demo()
