@@ -22,7 +22,7 @@ from vbmod import *
 import networkx as nx
 from time import *
 
-def demo_largeN(N=1e3,Kvec=array([4,3,5]),ktot=16,kout=6):
+def demo_largeN(N=1e3,Kvec=array([4,3,5,6,7]),ktot=16,kout=6):
     """
     function to demonstrate vbmod for larger number of nodes
     """
