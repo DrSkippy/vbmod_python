@@ -33,7 +33,7 @@ A_ig = G_ig.get_adjacency()
 ####################
 # set up model
 N=A_nx.shape[0]         # number of nodes
-Kvec=range(2,10+1)      # range of K values over which to search
+#Kvec=range(2,10+1)      # range of K values over which to search
 
 # hyperparameters for priors
 net0={}
@@ -46,12 +46,14 @@ net0['bm0']=N*1.
 opts={}
 opts['NUM_RESTARTS']=1450
 
+vbmod = MPL_Vbmod(2,5,net0,opts)
+
 # run vb
-(net,net_K)=learn_restart(A_nx.tocsr(),Kvec,net0,opts)
+(net,net_K) = vbmod.learn_restart(A_nx.tocsr())
 
 # display figures
-#restart_figs(A,net,net_K)
-#show()
+vbmod.restart_figs(A_nx,net,net_K)
+show()
 
 # extract results
 #Q = net_K[5]['Q']

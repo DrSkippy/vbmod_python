@@ -20,33 +20,37 @@ Modifictions Scott Hendrickson drskippy@twitter.com 2014-06
 from vbmod import *
 
 import networkx as nx
+from time import *
 
 def demo():
-	"""
-	function to demonstrate vbmod
-	"""
-	N=128.
-	K=4
-	Kvec=array(range(K-2,K+2+1))
-	ktot=16.
-	kout=6.
-	#pivec=ones(1,Ktrue)/Ktrue;	 
+    """
+    function to demonstrate vbmod
+    """
+    N=128.
+    K=4
+    #Kvec=array(range(K-2,K+2+1))
+    ktot=16.
+    kout=6.
+    #pivec=ones(1,Ktrue)/Ktrue;     
 
-	# determine within- and between- module edge probabilities from above
-	tp=(ktot-kout)/(N/K-1)
-	tm=kout/(N*(K-1)/K)
+    # determine within- and between- module edge probabilities from above
+    tp=(ktot-kout)/(N/K-1)
+    tm=kout/(N*(K-1)/K)
+    
+    vbmod = MPL_Vbmod(K-2, K+3)
+    
+    print "generating random adjacency matrix ... "
+    A=vbmod.rnd(N,K,tp,tm)
 
-	print "generating random adjacency matrix ... "
-	A=rnd(N,K,tp,tm)
-
-	print "running variational bayes ... "
-	t=time()
-	(net,net_K)=learn_restart(A,Kvec)
-	print "finished in", time()-t , "seconds"
-	print "displaying results ... "
-	restart_figs(A,net,net_K)
-	show()
-	return net
+    print "running variational bayes ... "
+    t=time()
+    #(net,net_K)=vbmod.learn_restart(A,Kvec)
+    (net,net_K)=vbmod.learn_restart(A)
+    print "finished in", time()-t , "seconds"
+    print "displaying results ... "
+    vbmod.restart_figs(A,net,net_K)
+    show()
+    return net
 
 if __name__ == '__main__':
-	demo()
+    demo()
