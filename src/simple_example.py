@@ -4,7 +4,7 @@ from vbmod import *
 import igraph
 
 # Simple network that can be cut into 2 fairly of obvious groups
-SIMPLE = '../dat/simple_example/simple.edgelist'
+SIMPLE = '../data/simple_example/simple.edgelist'
 
 def igraph_read_edgelist(filename):
     # simple igraph analog to newtorkx's read_edgelist
@@ -46,14 +46,14 @@ net0['bm0']=N*1.
 opts={}
 opts['NUM_RESTARTS']=1450
 
-vbmod = MPL_Vbmod(2,5,net0,opts)
+vbm = mpl_vbmod.MPL_Vbmod(2,5,net0,opts)
 
 # run vb
-(net,net_K) = vbmod.learn_restart(A_nx.tocsr())
+(net,net_K) = vbm.learn_restart(A_nx.tocsr())
 
 # display figures
-vbmod.restart_figs(A_nx,net,net_K)
-show()
+vbm.restart_figs(A_nx,net,net_K)
+vbm.show()
 
 # extract results
 #Q = net_K[5]['Q']

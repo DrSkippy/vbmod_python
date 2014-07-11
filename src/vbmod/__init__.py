@@ -1,1 +1,2 @@
-__all__ = ['vbmod']
+__all__ = ['vbmod'
+            , 'mpl_vbmod']
