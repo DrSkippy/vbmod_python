@@ -29,10 +29,11 @@ import subprocess
 import numexpr
 import logging
 
+LOGFILENAME = "~/vbmod-log"
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s'
         , level=logging.INFO
-        , filename="./vbmod-log")
+        , filename=LOGFILENAME)
 logr = logging.getLogger("vbmod_logger")
 
 class Vbmod(object):
