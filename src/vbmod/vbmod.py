@@ -20,6 +20,7 @@ import resource
 import subprocess
 import numexpr
 import logging
+from numba import jit
 
 LOGFILENAME = "../vbmod-log"
 # set up logging
@@ -44,7 +45,7 @@ class Vbmod(object):
             , "MAX_FITER":30
             , "VERBOSE":0
             , "SAVE_ITER":0
-            , "NUM_RESTARTS":25
+            , "NUM_RESTARTS":50
                 }
 
     def __init__(self, k_min=2, k_max=6, net0={}, opts={}):
@@ -83,32 +84,14 @@ class Vbmod(object):
                      posterior on \pi
         """
         self.Kvec = array(range(k_min, k_max))
-        # default options
-        #TOL_DF=1e-2
-        #MAX_FITER=30
-        #VERBOSE=0
-        #SAVE_ITER=0
-
-        logr.info("get options from opts struct")
+        logr.debug("kvec = {}".format(self.Kvec))
+        logr.info("get options from opts struct opts= {}".format(opts))
         for k in self.opts_default:
             if k in opts:
                 setattr(self, k, opts[k])
             else:
                 setattr(self, k, self.opts_default[k])
-        #if (type(opts) == type({})) and (len(opts) > 0):
-        #    if 'TOL_DF' in opts: TOL_DF=opts['TOL_DF']
-        #    if 'MAX_FITER' in opts: MAX_FITER=opts['MAX_FITER']
-        #    if 'VERBOSE' in opts: VERBOSE=opts['VERBOSE']
-        #    if 'SAVE_ITER' in opts: SAVE_ITER=opts['SAVE_ITER']		   
-
-        logr.info("default prior hyperparameters")
-        #ap0=2;
-        #bp0=1;
-        #am0=1;
-        #bm0=2;
-        #a0=ones([1,K]);
-
-        logr.info("get initial Q0 matrix and prior hyperparameters from net0 struct")
+        logr.info("geting initial Q0 matrix and prior hyperparameters from net0= {}".format(net0))
         for k in self.net0_default:
             if k in net0:
                 setattr(self, k, net0[k])
@@ -117,7 +100,7 @@ class Vbmod(object):
 
     def init(self,N,K):
         """
-            returns randomly-initialized mean-field matrix Q0 for vbmod. 
+        returns randomly-initialized mean-field matrix Q0 for vbmod. 
         
         inputs:
           N: number of nodes
@@ -125,15 +108,14 @@ class Vbmod(object):
         
         outputs:
           Q: N-by-K mean-field matrix (rows sum to 1)
-        
         """
         Q=mat(random.random([N,K]))
         Q=Q/(Q.sum(1)*ones([1,K]))
         return Q
 
+    @jit
     def rnd(self,N,K,tp,tm):
         """
-        
         sample from vbmod likelihood. generates a random adjacency matrix
         sampled from a constrained stochastic block model specified by the
         given parameters.
@@ -146,7 +128,6 @@ class Vbmod(object):
         
         outputs:
           A: N-by-N adjacency matrix (logical, sparse)
-
         """
         # jntj: need pivec in here too
         mask=matrix(kron(eye(K),ones([N/K,N/K])))
@@ -161,7 +142,6 @@ class Vbmod(object):
         A=A.tocsr()
         return A
 
-    #def learn(self,A,K,net0={},opts={}):
     def learn(self,A,K):
         """
         runs variational bayes for inference of network modules
@@ -201,19 +181,6 @@ class Vbmod(object):
             net['a']: alpha_{\mu}, 1-by-K vector of hyperparameters for
                      posterior on \pi
         """
-        # default options
-        #TOL_DF=1e-2
-        #MAX_FITER=30
-        #VERBOSE=0
-        #SAVE_ITER=0
-
-        #logr.info("get options from opts struct")
-        #if (type(opts) == type({})) and (len(opts) > 0):
-        #    if 'TOL_DF' in opts: TOL_DF=opts['TOL_DF']
-        #    if 'MAX_FITER' in opts: MAX_FITER=opts['MAX_FITER']
-        #    if 'VERBOSE' in opts: VERBOSE=opts['VERBOSE']
-        #    if 'SAVE_ITER' in opts: SAVE_ITER=opts['SAVE_ITER']		   
-
         N=A.shape[0]		# number of nodes
         M=0.5*A.sum(0).sum(1)  # total number of non-self edges
         M=M[0,0]
@@ -222,32 +189,6 @@ class Vbmod(object):
         uk=mat(ones([K,1]))
         un=mat(ones([N,1]))
         
-        #logr.info("default prior hyperparameters")
-        #ap0=2;
-        #bp0=1;
-        #am0=1;
-        #bm0=2;
-        #a0=ones([1,K]);
-
-        #logr.info("get initial Q0 matrix and prior hyperparameters from net0 struct")
-        #if (type(net0) == type({})) and (len(net0) > 0):
-        #    if 'Q0' in net0: Q=net0['Q0']
-        #    if 'ap0' in net0: ap0=net0['ap0']
-        #    if 'bp0' in net0: bp0=net0['bp0']
-        #    if 'am0' in net0: am0=net0['am0']
-        #    if 'bm0' in net0: bm0=net0['bm0']
-        #    if 'a0' in net0: a0=net0['a0']
-        
-        #logr.info("initialize Q if not provided")
-        #try: Q
-        #except NameError: Q=self.init(N,K)
-        
-        #Qmat=mat(Q)
-        #logr.info("size of Q={}".format(Q.shape))
-        #Q=init(N,K)
-
-        # ensure a0 is a 1-by-K vector
-        #assert(a0.shape == (1,K))
         if self.a0 is None:
             a0_ = ones([1,K])
         else:
@@ -259,7 +200,6 @@ class Vbmod(object):
             Q = self.Q0
         Qmat=mat(Q)
         logr.info("size of Q={}".format(Q.shape))
-       
         logr.info("intialize variational distribution hyperparameters to be equal to prior hyperparameters")
         ap=self.ap0
         bp=self.bp0
@@ -274,7 +214,6 @@ class Vbmod(object):
         # to be passed to vbmod_estep_inline
         # jntj: must be better way
         (rows,cols)=A.nonzero()
-
         # vector to store free energy over iterations
         F=[]
         for i in range(self.MAX_FITER):
@@ -284,20 +223,25 @@ class Vbmod(object):
             
             # compute local and global coupling constants, JL and JG and
             # chemical potentials -lnpi
-            psiap=digamma(ap)
-            psibp=digamma(bp)
-            psiam=digamma(am)
-            psibm=digamma(bm)
-            psip=digamma(ap+bp)
-            psim=digamma(am+bm)
-            JL=psiap-psibp-psiam+psibm
-            JG=psibm-psim-psibp+psip
+            psiap=digamma(ap)   # c+
+            psibp=digamma(bp)   # d+
+            psiam=digamma(am)   # c-
+            psibm=digamma(bm)   # d-
+            psip=digamma(ap+bp) # c+ and c-
+            psim=digamma(am+bm) # d+ and d-
+            JL=psiap-psibp-psiam+psibm  # c+ - d+ - c- + d-
+            ### difference between paper and code here
+            JG=psibm-psim-psibp+psip    # d- - (d+ and d-) - d+ + (c+ and c-) 
+            ###
+            #JG=psibm-psim-psiam+psip    # d- - (d+ and d-) - c- + (c+ and c-) 
 
+            ### difference between paper and code here
             lnpi=digamma(a)-digamma(sum(a))
+            ## -sign okay
 
-            self.estep_inline(rows,cols,array(Q),float(JL),float(JG),array(lnpi),array(n))
+            # this doesn't do what it claims to do!
+            #self.estep_inline(rows,cols,array(Q),float(JL),float(JG),array(lnpi),array(n))
             
-            """
             # local update (technically correct, but slow)
             for l in range(N):
                 # exclude Q[l,:] from contributing to its own update
@@ -310,7 +254,6 @@ class Vbmod(object):
                 lnQl=lnQl-lnQl.max()
                 Q[l,:]=exp(lnQl)
                 Q[l,:]=Q[l,:]/Q[l,:].sum()
-            """
         
             ####################
             #VBM-step, update distribution over parameters
@@ -353,16 +296,12 @@ class Vbmod(object):
                         -gammaln(sum(a0_)))
                     -sum(multiply(Qmat,log(Qmat))))
             F[i]=-F[i]
-            
             logr.info("iteration: {}, F={}".format(i+1, F[i]))
-
             # F should always decrease
             if (i>1) and F[i] > F[i-1]:
                 print "\twarning: F increased from", F[i-1] ,"to", F[i]
-
             if (i>1) and (abs(F[i]-F[i-1]) < self.TOL_DF):
                 break
-          
         return dict(F=F[-1],F_iter=F,Q=Q,K=K,ap=ap,bp=bp,am=am,bm=bm,a=a)
 
     def estep_inline(self,rows,cols,Q,JL,JG,lnpi,n):
@@ -424,13 +363,9 @@ class Vbmod(object):
           }
         }
         """
-
         # run the above string through weave
         weave.inline(code,['rows','cols','Q','JL','JG','lnpi','n'])
 
-
-    #def learn_restart(self,A,Kvec,net0={},opts={}):
-    #def learn_restart(self,A,net0={},opts={}):
     def learn_restart(self,A):
         """
         runs vbmod with multiple restarts over a range of K values. (see
@@ -449,15 +384,6 @@ class Vbmod(object):
           net_K: length-K array of posterior structures for best run over
               each K
         """
-        # default options
-        #NUM_RESTARTS=25;
-        #VERBOSE=1;
-
-        # get options if provided
-        #if (type(opts) == type({})) and (len(opts) > 0):
-        #    if 'NUM_RESTARTS' in opts: NUM_RESTARTS=opts['NUM_RESTARTS']
-        #    if 'VERBOSE' in opts: VERBOSE=opts['VERBOSE']
-
         N=A.shape[0]
         len_Kvec=len(self.Kvec)
         print "running vbmod for ", self.NUM_RESTARTS ,"restarts"
@@ -480,78 +406,15 @@ class Vbmod(object):
 
             print "find best run for this value of K"
             (rndx,)=where(F_KR==F_KR.min())
-            
             rndx=rndx[0]
             net_K.append(net_KR[rndx])
             F_K[kndx]=net_K[kndx]['F']
-
             print "best run for K =", K ,": F =", F_K[kndx]
-
         # find best run over all K values
         (kndx,)=where(F_K==F_K.min())
         kndx=kndx[0]
         net=net_K[kndx]
         net['K']=self.Kvec[kndx]
-        
         print "minimum at K =", net['K'] , "of F =", net['F']
-
         return net, net_K
 
-#"""This extention of the Vbmod object enables plotting of intermediate steps"""
-#
-#from pylab import spy, show, imshow, axis, plot, figure, subplot, xlabel, ylabel, title, grid, hold, legend
-#from matplotlib.ticker import FormatStrFormatter
-#
-#class MPL_Vbmod(Vbmod):
-#
-#    def restart_figs(self,A,net,net_K):
-#        """
-#        plots results from vbmod_restart
-#        
-#        inputs:
-#          A: N-by-N undirected (symmetric), binary adjacency matrix w/o
-#              self-edges (note: fastest for sparse and logical A)
-#          net: posterior structure for best run over all K and
-#              restarts. see vbmod for further documentation.
-#          net_K: length-K array of posterior structures for best run over
-#              each K; see vbmod_restart for further documentation
-#        """
-#        
-#        N=net['Q'].shape[0]
-#        K=net['Q'].shape[1]
-#        figure()
-#        
-#        subplot(1,3,1)
-#        Kvec=[]
-#        F_K=[]
-#        for n in net_K:
-#            Kvec.append(n['K'])
-#            F_K.append(n['F'])
-#        Kvec=array(Kvec)
-#        F_K=array(F_K)
-#
-#        plot(Kvec,F_K,'b^-')
-#        hold(True)
-#
-#        plot([K],[net['F']],'ro',label='Kvb')
-#        hold(False)
-#        legend()
-#        title('complexity control')
-#        xlabel('K')
-#        ylabel('F')
-#        grid('on')
-#        #ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
-#
-#        subplot(1,3,2)
-#        imshow(array(net['Q']),interpolation='nearest',aspect=(1.0*K)/N)
-#        title('Qvb')
-#        xlabel('K')
-#        ylabel('N')
-#
-#        subplot(1,3,3)
-#        plot(arange(1,len(net['F_iter'])+1),net['F_iter'],'bo-')
-#        title('learning curve')
-#        xlabel('iteration')
-#        ylabel('F')
-#        grid('on')
-#

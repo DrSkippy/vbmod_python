@@ -46,7 +46,7 @@ net0['bm0']=N*1.
 opts={}
 opts['NUM_RESTARTS']=1450
 
-vbm = mpl_vbmod.MPL_Vbmod(2,5,net0,opts)
+vbm = mpl_vbmod.MPL_Vbmod(2,7,net0,opts)
 
 # run vb
 (net,net_K) = vbm.learn_restart(A_nx.tocsr())
