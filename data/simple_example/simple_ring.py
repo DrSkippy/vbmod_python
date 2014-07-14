@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import itertools
-groups = 5
+groups = 8
 gsize = 6
 nodes = [i for i in range(groups*gsize)]
 for g in range(groups):

@@ -20,7 +20,8 @@ import resource
 import subprocess
 import numexpr
 import logging
-from numba import jit
+#from numba import jit
+#import copy
 
 LOGFILENAME = "../vbmod-log"
 # set up logging
@@ -113,7 +114,7 @@ class Vbmod(object):
         Q=Q/(Q.sum(1)*ones([1,K]))
         return Q
 
-    @jit
+    #@jit
     def rnd(self,N,K,tp,tm):
         """
         sample from vbmod likelihood. generates a random adjacency matrix
@@ -239,8 +240,10 @@ class Vbmod(object):
             lnpi=digamma(a)-digamma(sum(a))
             ## -sign okay
 
+            #QTT = copy.copy(Q)
+            #ATT = copy.copy(A)
             # this doesn't do what it claims to do!
-            #self.estep_inline(rows,cols,array(Q),float(JL),float(JG),array(lnpi),array(n))
+            #self.estep_inline(rows ,cols ,array(Q) ,float(JL),float(JG),array(lnpi),array(n))
             
             # local update (technically correct, but slow)
             for l in range(N):
@@ -254,7 +257,23 @@ class Vbmod(object):
                 lnQl=lnQl-lnQl.max()
                 Q[l,:]=exp(lnQl)
                 Q[l,:]=Q[l,:]/Q[l,:].sum()
-        
+            """
+            # local update (technically correct, but slow)
+            for l in range(N):
+                # exclude Q[l,:] from contributing to its own update
+                QTT[l,:]=zeros([1,K])
+                # jntj: doesn't take advantage of sparsity
+                Al=mat(ATT.getrow(l).toarray())
+                AQl=multiply((Al.T*uk.T),QTT).sum(0)
+                #print "++>>=",AQl
+                nl=QTT.sum(0)
+                lnQl=JL*AQl-JG*nl+lnpi
+                lnQl=lnQl-lnQl.max()
+                QTT[l,:]=exp(lnQl)
+                QTT[l,:]=QTT[l,:]/QTT[l,:].sum()
+            #print "++++>>>QTT=",QTT
+            #print "++++>>>Q=",Q
+            """ 
             ####################
             #VBM-step, update distribution over parameters
             ####################
@@ -316,12 +335,18 @@ class Vbmod(object):
         int i,rcndx,rcndxi,mu;
         double AQimu,lnQimu,lnQimumax,Zi;
         
+        //printf("nnz=%d\\n",nnz);
+        //printf("N=%d\\n",N);
+        //printf("K=%d\\n",K);
+        //printf("JL=%f\\n",JL);
+        //printf("JG=%f\\n",JG);
+
         rcndx=0;
         /* update each node */
         for (i=0; i<N; i++) {
 
           rcndxi=rcndx;
-          /* update each module for the i-th node */
+          /* uipdate each module for the i-th node */
           for (mu=0; mu<K; mu++) {
 
             /* calculate (A*Q)_{i,\mu} w/o the i-th node */
@@ -332,9 +357,16 @@ class Vbmod(object):
               }
               rcndx++;
             }
+            
+            //printf("AQimu=%f\\n",AQimu);
+
             if (mu<K-1)
               rcndx=rcndxi;
             
+            //printf("mu=%d\\n",mu);
+            //printf("K=%d\\n",K);
+            //printf("rcndx=%d\\n",rcndx);
+
             /* calculate expected occupation w/o the i-th node */
             n[mu]-=Q[K*i+mu];
 
@@ -342,10 +374,14 @@ class Vbmod(object):
             lnQimu=JL*AQimu-JG*n[mu]+lnpi[mu];
             Q[K*i+mu]=lnQimu;
 
+            //printf("n[mu]=%f\\n",n[mu]);
+            //printf("lnQimu=%f\\n",lnQimu);
+
             /* store max over all mu of lnQimu */
             if ((mu == 0) || (lnQimu > lnQimumax))
               lnQimumax=lnQimu;
           }
+
 
           /* calculate normalization constant */
           /* work in log-space to avoid under/over flow */
@@ -361,6 +397,10 @@ class Vbmod(object):
             /* adjust n[mu] */
             n[mu]+=Q[K*i+mu];
           }
+          //printf("====>>>lnQimumax=%f\\n",lnQimumax);
+          //for (int kk = 0; kk<N; kk++) {
+          //  printf("Q[%d]=%f\\n",kk,Q[kk]);
+          //}
         }
         """
         # run the above string through weave
