@@ -3,11 +3,11 @@
 
 notes
 -----
-* vbmod module
+* vbmod module is separate from demo, exmaples and plotting
+* separate matplotlib components from core module
 * simple ring example generator, modeling and visualization
 * demo scripts from original repo included
-* separate matplotlib components from core module
-* removed alternative optimized weave code from original (this code doesn't work in the original)
+* removed alternative optimized weave (c) code from original (this code doesn't work in the original)
 
 
 ORIGINAL README
@@ -53,7 +53,7 @@ structure from this adjacency matrix.
 
 see documentation in files for further information.
 
->>>Note: Examples are vbmod_demo_large.py, vbmod_demo_small.py and simple_example.py
+>Note: Examples are vbmod_demo_large.py, vbmod_demo_small.py and simple_example.py
 
 license 
 -------
