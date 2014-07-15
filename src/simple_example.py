@@ -1,39 +1,41 @@
 #!/usr/bin/env python
-from networkx import *
+# use either networkx or igraph as desired
 from vbmod import *
-import igraph
 
 # Simple network that can be cut into 2 fairly of obvious groups
 SIMPLE = '../data/simple_example/simple.edgelist'
+KMIN, KMAX = 6,10
 
-def igraph_read_edgelist(filename):
+try:
+    ##### IGRAPH #####
+    import igraph
+    from scipy import sparse
+
     # simple igraph analog to newtorkx's read_edgelist
-    G = igraph.Graph()
+    G_ig = igraph.Graph()
     with open(SIMPLE) as f:
         edges = [tuple(x.strip().split(" ")) for x in f]
     vertices = list(set([i for s in edges for i in s]))
-    G.add_vertices(vertices) 
-    G.add_edges(edges)
+    G_ig.add_vertices(vertices) 
+    G_ig.add_edges(edges)
     # optional to label the nodes in order
-    G.vs["label"] = range(len(vertices))
-    return G
+    G_ig.vs["label"] = range(len(vertices))
 
-# read in list of edges
-G_nx = read_edgelist(SIMPLE)
-G_ig = igraph_read_edgelist(SIMPLE)
+    # convert igraph graph object to sparse matrix
+    A_ig = G_ig.get_adjacency()
+    A = sparse.csr_matrix(list(A_ig), A_ig.shape)
+except ImportError:
+    ##### NETWORKX #####
+    from networkx import *
 
-# convert networkx graph object to sparse matrix
-A_nx = to_scipy_sparse_matrix(G_nx)
-A_ig = G_ig.get_adjacency()
+    # read in list of edges
+    G_nx = read_edgelist(SIMPLE)
+    # convert networkx graph object to sparse matrix
+    A_nx = to_scipy_sparse_matrix(G_nx)
+    A = A_nx.tocsr()
 
-# same adjacency representation
-#print A_nx.todense()
-#print A_ig
 
-####################
-# set up model
-N=A_nx.shape[0]         # number of nodes
-#Kvec=range(2,10+1)      # range of K values over which to search
+N=A.shape[0]         # number of nodes
 
 # hyperparameters for priors
 net0={}
@@ -44,33 +46,27 @@ net0['bm0']=N*1.
 
 # options
 opts={}
-#opts['NUM_RESTARTS']=1450
 opts['NUM_RESTARTS']=50
 
-vbm = mpl_vbmod.MPL_Vbmod(4,9,net0,opts)
-
-# run vb
-(net,net_K) = vbm.learn_restart(A_nx.tocsr())
+# run vbmod
+vbm = mpl_vbmod.MPL_Vbmod(KMIN, KMAX, net0, opts)
+(net,net_K) = vbm.learn_restart(A)
 
 # display figures
-vbm.restart_figs(A_nx,net,net_K)
+vbm.restart_figs(A,net,net_K)
 vbm.show()
 
 # extract results
-#Q = net_K[5]['Q']
 Q = net['Q']
 Q.tolist()
 Q = [x.tolist()[0] for x in Q]
 ma = [x.index(max(x)) for x in Q]
 
-# See the results
-#for i,j  in zip(Q,ma):
-#    print i, j
-
-#########
-
-deng = G_ig.community_fastgreedy()
-clust_wiggy = igraph.VertexClustering(G_ig, ma)
+#################################
+# This part requires igraph!
+#################################
+#deng = G_ig.community_fastgreedy()
 #clust = deng.as_clustering()
+clust_w = igraph.VertexClustering(G_ig, ma)
 #igraph.plot(clust)
-igraph.plot(clust_wiggy)
+igraph.plot(clust_w)

@@ -1,3 +1,18 @@
+![alt text](/img/igraphrBPyAg.png "Example")
+![alt text](/img/figure_1.png "Example")
+
+notes
+-----
+* vbmod module
+* simple ring example generator, modeling and visualization
+* demo scripts from original repo included
+* separate matplotlib components from core module
+* removed alternative optimized weave code from original (this code doesn't work in the original)
+
+
+ORIGINAL README
+###############
+
 introduction
 ---------
 vbmod_python is python software for identifying modules in networks

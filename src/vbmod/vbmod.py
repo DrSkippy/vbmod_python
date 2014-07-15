@@ -9,6 +9,7 @@ Modifictions:
 Scott Hendrickson scott@drskippy.net 2014-06
 """
 # import modules
+import sys
 from scipy import special
 from scipy.misc import comb
 from scipy.special import digamma, betaln, gammaln
@@ -17,14 +18,12 @@ from numpy import *
 from scipy import weave
 import struct
 import resource
-import subprocess
+#import subprocess
 import numexpr
 import logging
-#from numba import jit
-#import copy
 
-LOGFILENAME = "../vbmod-log"
 # set up logging
+LOGFILENAME = "../vbmod-log"
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s'
         , level=logging.INFO
         , filename=LOGFILENAME)
@@ -55,38 +54,25 @@ class Vbmod(object):
         must equal K.
         
         inputs:
-          A: N-by-N undirected (symmetric), binary adjacency matrix w/o
-             self-edges (note: fastest for sparse and logical A)
-          K: (maximum) number of modules
+         k_min: smallest k to search
+         k_max: largest k to search
           net0: initialization/hyperparameter structure for network
-            net0['Q0']: N-by-K initial mean-field matrix (rows sum to 1)
-            net0['ap0']: alpha_{+0}, hyperparameter for prior on \theta_+
-            net0['bp0']: beta_{+0}, hyperparameter for prior on \theta_+
-            net0['am0']: alpha_{-0}, hyperparameter for prior on \theta_-
-            net0['bm0']: beta_{-0}, hyperparameter for prior on \theta_-
-            net0['a0']: alpha_{\mu0}, 1-by-K vector of hyperparameters for
+                net0['Q0']: N-by-K initial mean-field matrix (rows sum to 1)
+                net0['ap0']: alpha_{+0}, hyperparameter for prior on \theta_+
+                net0['bp0']: beta_{+0}, hyperparameter for prior on \theta_+
+                net0['am0']: alpha_{-0}, hyperparameter for prior on \theta_-
+                net0['bm0']: beta_{-0}, hyperparameter for prior on \theta_-
+                net0['a0']: alpha_{\mu0}, 1-by-K vector of hyperparameters for
                      prior on \pi
           opts: options
-            opts['TOL_DF']: tolerance on change in F (outer loop)
-            opts['MAX_FITER']: maximum number of F iterations (outer loop)
-            opts['VERBOSE']: verbosity (0=quiet (default),1=print, 2=figures)
-        
-        outputs:
-          net: posterior structure for network
-            net['F']: converged free energy (same as net.F_iter(end))
-            net['F_iter']: free energy over iterations (learning curve)
-            net['Q']: N-by-K mean-field matrix (rows sum to 1)
-            net['K']: K, passed for compatibility with vbmod_restart
-            net['ap']: alpha_+, hyperparameter for posterior on \theta_+
-            net['bp']: beta_+, hyperparameter for posterior on \theta_+
-            net['am']: alpha_-, hyperparameter for posterior on \theta_-
-            net['bm']: beta_-, hyperparameter for posterior on \theta_-
-            net['a']: alpha_{\mu}, 1-by-K vector of hyperparameters for
-                     posterior on \pi
+                opts['TOL_DF']: tolerance on change in F (outer loop)
+                opts['MAX_FITER']: maximum number of F iterations (outer loop)
+                opts['VERBOSE']: verbosity (0=quiet (default),1=print, 2=figures)
         """
         self.Kvec = array(range(k_min, k_max))
         logr.debug("kvec = {}".format(self.Kvec))
         logr.info("get options from opts struct opts= {}".format(opts))
+        # make attributes for either defaults or opts passed to constructor
         for k in self.opts_default:
             if k in opts:
                 setattr(self, k, opts[k])
@@ -114,7 +100,6 @@ class Vbmod(object):
         Q=Q/(Q.sum(1)*ones([1,K]))
         return Q
 
-    #@jit
     def rnd(self,N,K,tp,tm):
         """
         sample from vbmod likelihood. generates a random adjacency matrix
@@ -156,18 +141,6 @@ class Vbmod(object):
           A: N-by-N undirected (symmetric), binary adjacency matrix w/o
              self-edges (note: fastest for sparse and logical A)
           K: (maximum) number of modules
-          net0: initialization/hyperparameter structure for network
-            net0['Q0']: N-by-K initial mean-field matrix (rows sum to 1)
-            net0['ap0']: alpha_{+0}, hyperparameter for prior on \theta_+
-            net0['bp0']: beta_{+0}, hyperparameter for prior on \theta_+
-            net0['am0']: alpha_{-0}, hyperparameter for prior on \theta_-
-            net0['bm0']: beta_{-0}, hyperparameter for prior on \theta_-
-            net0['a0']: alpha_{\mu0}, 1-by-K vector of hyperparameters for
-                     prior on \pi
-          opts: options
-            opts['TOL_DF']: tolerance on change in F (outer loop)
-            opts['MAX_FITER']: maximum number of F iterations (outer loop)
-            opts['VERBOSE']: verbosity (0=quiet (default),1=print, 2=figures)
         
         outputs:
           net: posterior structure for network
@@ -211,10 +184,6 @@ class Vbmod(object):
         # ensure a0 is a 1-by-K vector
         assert(a.shape == (1,K))
 
-        # get indices of non-zero row/columns
-        # to be passed to vbmod_estep_inline
-        # jntj: must be better way
-        (rows,cols)=A.nonzero()
         # vector to store free energy over iterations
         F=[]
         for i in range(self.MAX_FITER):
@@ -231,20 +200,10 @@ class Vbmod(object):
             psip=digamma(ap+bp) # c+ and c-
             psim=digamma(am+bm) # d+ and d-
             JL=psiap-psibp-psiam+psibm  # c+ - d+ - c- + d-
-            ### difference between paper and code here
             JG=psibm-psim-psibp+psip    # d- - (d+ and d-) - d+ + (c+ and c-) 
-            ###
-            #JG=psibm-psim-psiam+psip    # d- - (d+ and d-) - c- + (c+ and c-) 
 
-            ### difference between paper and code here
             lnpi=digamma(a)-digamma(sum(a))
-            ## -sign okay
 
-            #QTT = copy.copy(Q)
-            #ATT = copy.copy(A)
-            # this doesn't do what it claims to do!
-            #self.estep_inline(rows ,cols ,array(Q) ,float(JL),float(JG),array(lnpi),array(n))
-            
             # local update (technically correct, but slow)
             for l in range(N):
                 # exclude Q[l,:] from contributing to its own update
@@ -257,23 +216,7 @@ class Vbmod(object):
                 lnQl=lnQl-lnQl.max()
                 Q[l,:]=exp(lnQl)
                 Q[l,:]=Q[l,:]/Q[l,:].sum()
-            """
-            # local update (technically correct, but slow)
-            for l in range(N):
-                # exclude Q[l,:] from contributing to its own update
-                QTT[l,:]=zeros([1,K])
-                # jntj: doesn't take advantage of sparsity
-                Al=mat(ATT.getrow(l).toarray())
-                AQl=multiply((Al.T*uk.T),QTT).sum(0)
-                #print "++>>=",AQl
-                nl=QTT.sum(0)
-                lnQl=JL*AQl-JG*nl+lnpi
-                lnQl=lnQl-lnQl.max()
-                QTT[l,:]=exp(lnQl)
-                QTT[l,:]=QTT[l,:]/QTT[l,:].sum()
-            #print "++++>>>QTT=",QTT
-            #print "++++>>>Q=",Q
-            """ 
+
             ####################
             #VBM-step, update distribution over parameters
             ####################
@@ -281,10 +224,6 @@ class Vbmod(object):
             # compute expected occupation numbers <n*>s
             n=Qmat.sum(0)
         
-            # compute expected edge counts <n**>s
-            #QTAQ=mat((Q.T*A*Q).toarray())
-            #npp=0.5*trace(QTAQ)
-            
             npp=0.5*(Qmat.T*A*Qmat).diagonal().sum()
             npm=0.5*trace(Qmat.T*(un*n-Qmat))-npp
             nmp=M-npp
@@ -318,93 +257,10 @@ class Vbmod(object):
             logr.info("iteration: {}, F={}".format(i+1, F[i]))
             # F should always decrease
             if (i>1) and F[i] > F[i-1]:
-                print "\twarning: F increased from", F[i-1] ,"to", F[i]
+                print >>sys.stderr,"\twarning: F increased from", F[i-1] ,"to", F[i]
             if (i>1) and (abs(F[i]-F[i-1]) < self.TOL_DF):
                 break
         return dict(F=F[-1],F_iter=F,Q=Q,K=K,ap=ap,bp=bp,am=am,bm=bm,a=a)
-
-    def estep_inline(self,rows,cols,Q,JL,JG,lnpi,n):
-        # following is a string of (poorly written) c code that gets
-        # passed to weave below. compiles on first run, should be quite
-        # fast thereafter
-        # jntj: documentation needed
-        code="""
-        int nnz=Nrows[0];
-        int N=NQ[0];
-        int K=NQ[1];
-        int i,rcndx,rcndxi,mu;
-        double AQimu,lnQimu,lnQimumax,Zi;
-        
-        //printf("nnz=%d\\n",nnz);
-        //printf("N=%d\\n",N);
-        //printf("K=%d\\n",K);
-        //printf("JL=%f\\n",JL);
-        //printf("JG=%f\\n",JG);
-
-        rcndx=0;
-        /* update each node */
-        for (i=0; i<N; i++) {
-
-          rcndxi=rcndx;
-          /* uipdate each module for the i-th node */
-          for (mu=0; mu<K; mu++) {
-
-            /* calculate (A*Q)_{i,\mu} w/o the i-th node */
-            AQimu=0;
-            while ((rows[rcndx]<=i) && (rcndx < nnz)) {
-              if (cols[rcndx] != i) {
-                AQimu+=Q[K*cols[rcndx]+mu];
-              }
-              rcndx++;
-            }
-            
-            //printf("AQimu=%f\\n",AQimu);
-
-            if (mu<K-1)
-              rcndx=rcndxi;
-            
-            //printf("mu=%d\\n",mu);
-            //printf("K=%d\\n",K);
-            //printf("rcndx=%d\\n",rcndx);
-
-            /* calculate expected occupation w/o the i-th node */
-            n[mu]-=Q[K*i+mu];
-
-            /* log of updated Q_{i,\mu} entry */
-            lnQimu=JL*AQimu-JG*n[mu]+lnpi[mu];
-            Q[K*i+mu]=lnQimu;
-
-            //printf("n[mu]=%f\\n",n[mu]);
-            //printf("lnQimu=%f\\n",lnQimu);
-
-            /* store max over all mu of lnQimu */
-            if ((mu == 0) || (lnQimu > lnQimumax))
-              lnQimumax=lnQimu;
-          }
-
-
-          /* calculate normalization constant */
-          /* work in log-space to avoid under/over flow */
-          Zi=0;
-          for (mu=0; mu<K; mu++) {
-            Q[K*i+mu]=exp(Q[K*i+mu]-lnQimumax);
-            Zi+=Q[K*i+mu];
-          }
-
-          /* normalize */
-          for (mu=0; mu<K; mu++) {
-            Q[K*i+mu]=Q[K*i+mu]/Zi;
-            /* adjust n[mu] */
-            n[mu]+=Q[K*i+mu];
-          }
-          //printf("====>>>lnQimumax=%f\\n",lnQimumax);
-          //for (int kk = 0; kk<N; kk++) {
-          //  printf("Q[%d]=%f\\n",kk,Q[kk]);
-          //}
-        }
-        """
-        # run the above string through weave
-        weave.inline(code,['rows','cols','Q','JL','JG','lnpi','n'])
 
     def learn_restart(self,A):
         """
@@ -426,16 +282,16 @@ class Vbmod(object):
         """
         N=A.shape[0]
         len_Kvec=len(self.Kvec)
-        print "running vbmod for ", self.NUM_RESTARTS ,"restarts"
-        print "N =", N , "K =", self.Kvec
-
+        print >>sys.stderr,"running vbmod for ", self.NUM_RESTARTS ,"restarts"
+        print >>sys.stderr, "N =", N , "K =", self.Kvec
+        logr.info("running vbmod for {} restarts;  N = {}; K = {}".format(self.NUM_RESTARTS, N,  self.Kvec))
         net_K = []
         F_K = zeros(len_Kvec)
         
         for kndx in range(len_Kvec):		
             K=self.Kvec[kndx];
-            print "K=",K
-            logr.info("perform NUM_RESTARTS of vbmod")
+            print >>sys.stderr, "K=",K
+            logr.info("K={}".format(K))
             net_KR = []
             F_KR=zeros(self.NUM_RESTARTS)
             for r in range(self.NUM_RESTARTS):
@@ -444,17 +300,19 @@ class Vbmod(object):
                 net_KR.append(self.learn(A,K))
                 F_KR[r]=net_KR[r]['F']
 
-            print "find best run for this value of K"
+            print >>sys.stderr, "find best run for this value of K"
             (rndx,)=where(F_KR==F_KR.min())
             rndx=rndx[0]
             net_K.append(net_KR[rndx])
             F_K[kndx]=net_K[kndx]['F']
-            print "best run for K =", K ,": F =", F_K[kndx]
+            print >>sys.stderr, "best run for K = {}; F = {}".format(K, F_K[kndx])
+            logr.info("best run for K = {}; F = {}".format(K, F_K[kndx]))
         # find best run over all K values
         (kndx,)=where(F_K==F_K.min())
         kndx=kndx[0]
         net=net_K[kndx]
         net['K']=self.Kvec[kndx]
-        print "minimum at K =", net['K'] , "of F =", net['F']
+        logr.info("minimum at K = {} of F = {}".format(net['K'], net['F']))
+        print >>sys.stderr, "minimum at K = {} of F = {}".format(net['K'], net['F'])
         return net, net_K
 
