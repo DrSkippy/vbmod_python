@@ -5,7 +5,7 @@ Copyright (C) 2007, 2008 Jake Hofman <jhofman@gmail.com>
 Distributed under GPL 3.0
 http://www.gnu.org/licenses/gpl.txt
 
-Modifictions:
+Modifications:
 Scott Hendrickson scott@drskippy.net 2014-06
 """
 # import modules
