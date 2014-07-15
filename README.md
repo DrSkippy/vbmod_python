@@ -11,10 +11,10 @@ notes
 
 
 ORIGINAL README
-###############
+---------------
 
 introduction
----------
+------------
 vbmod_python is python software for identifying modules in networks
 (e.g. "community detection"), as described in "a bayesian approach to
 network modularity."
@@ -29,7 +29,7 @@ Modularity", Phys. Rev. Lett. 100, 258701 (2008)
 
 
 installation
-----------
+------------
 vbmod_python doesn't require any installation, but does require the
 scipy package (http://www.scipy.org/Installing_SciPy). 
 
@@ -46,16 +46,17 @@ slow when interpreted by python.
 
 
 demo
-----------
+----
 run 'vbmod.py' which generates an adjacency matrix for a modular
 random network and runs variational bayes to infer the modular
 structure from this adjacency matrix.
 
 see documentation in files for further information.
 
+>>>Note: Examples are vbmod_demo_large.py, vbmod_demo_small.py and simple_example.py
 
 license 
-----------
+-------
 copyright (c) 2007, 2008 jake hofman <jhofman@gmail.com>
 
 This program is free software: you can redistribute it and/or modify
