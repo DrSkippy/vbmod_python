@@ -1,13 +1,13 @@
 ![alt text](/img/igraphrBPyAg.png "Example")
 ![alt text](/img/figure_1.png "Example")
 
-notes
------
-* vbmod module is separate from demo, exmaples and plotting
-* separate matplotlib components from core module
-* simple ring example generator, modeling and visualization
-* demo scripts from original repo included
-* removed alternative optimized weave (c) code from original (this code doesn't work in the original)
+Notes on differences in this fork
+---------------------------------
+* vbmod module is separated from demo, examples and plotting code
+* separated matplotlib components from core module
+* added simple ring example generator, modeling and visualization
+* demo scripts from original repo moved to sub directory
+* removed alternative optimized weave (c) code from original (this code doesn't work properly in the original code)
 
 
 ORIGINAL README
